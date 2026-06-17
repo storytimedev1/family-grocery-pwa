@@ -1,4 +1,4 @@
-const CACHE_NAME = 'family-groceries-v3';
+const CACHE_NAME = 'family-groceries-v4';
 const APP_SHELL = [
   './',
   './index.html',
