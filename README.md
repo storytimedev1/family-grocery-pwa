@@ -11,7 +11,7 @@ A simple installable grocery list app for families. The frontend is a static Rea
 - Shared family passcode saved in `localStorage` and sent to Apps Script
 - Barcode scanning with `@zxing/browser`
 - Product lookup through Open Food Facts
-- Handwritten list OCR with Tesseract.js in the browser
+- Handwritten list OCR with OpenRouter AI through Apps Script
 - Installable PWA with manifest and service worker
 
 ## Project Structure
@@ -49,6 +49,25 @@ id | name | quantity | category | notes | status | barcode | brand | addedBy | a
 
 The Apps Script backend also creates or repairs these headers when it starts, but adding them manually makes setup easier to verify.
 
+Optional catalog import:
+
+1. Add a second tab called `Catalog`.
+2. Add this header row:
+
+```text
+category | name
+```
+
+3. Add one grocery-name option per row.
+
+```text
+Produce | Bananas
+Produce | Apples
+Dairy Eggs & Cheese | Milk
+```
+
+In the app, open Settings and tap `Import catalog from Google Sheets`. This imports the catalog into only that device's local name lists. The app does not auto-import on launch.
+
 ## Apps Script Setup
 
 1. Open [Google Apps Script](https://script.google.com/).
@@ -61,9 +80,13 @@ The Apps Script backend also creates or repairs these headers when it starts, bu
 SPREADSHEET_ID = your Google Sheet ID
 FAMILY_PASSCODE = your shared family passcode
 REQUIRE_PASSCODE_FOR_READS = true
+OPENROUTER_API_KEY = your OpenRouter API key
+OPENROUTER_MODEL = openai/gpt-4o-mini
 ```
 
 `REQUIRE_PASSCODE_FOR_READS` is optional. Set it to `false` or omit it if you want reads to work without a passcode. Writes always require the passcode when `FAMILY_PASSCODE` is set.
+
+`OPENROUTER_API_KEY` is only needed for the AI OCR button on the handwritten-list screen. `OPENROUTER_MODEL` is optional; if omitted, Apps Script uses `openai/gpt-4o-mini`.
 
 The Sheet ID is the long value in a Google Sheets URL:
 
@@ -147,10 +170,13 @@ Frontend calls the Apps Script Web App with:
 
 ```text
 GET  ?action=listItems&passcode=...
+GET  ?action=listCatalog&passcode=...
 POST { "action": "addItem", "item": {...}, "passcode": "..." }
 POST { "action": "updateItem", "id": "...", "updates": {...}, "passcode": "..." }
 POST { "action": "deleteItem", "id": "...", "passcode": "..." }
 POST { "action": "toggleItem", "id": "...", "status": "checked", "passcode": "..." }
+POST { "action": "aiOcr", "imageDataUrl": "data:image/jpeg;base64,...", "passcode": "..." }
+POST { "action": "identifyPhotoItem", "imageDataUrl": "data:image/jpeg;base64,...", "passcode": "..." }
 ```
 
 POST requests are sent as `text/plain;charset=utf-8` with a JSON body to avoid unnecessary browser preflight complexity with Apps Script.
@@ -177,5 +203,5 @@ POST requests are sent as `text/plain;charset=utf-8` with a JSON body to avoid u
 ## Notes
 
 - Barcode product data comes from `https://world.openfoodfacts.org/api/v0/product/{barcode}.json`.
-- OCR runs fully in the browser with Tesseract.js.
+- AI OCR and Photo item identification send a resized image to Apps Script, then Apps Script calls OpenRouter. The OpenRouter API key stays in Apps Script Script Properties and is never exposed to the frontend.
 - The service worker caches the app shell and visited static files for installability and basic offline loading. Syncing the grocery list still requires a network connection.
